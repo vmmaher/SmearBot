@@ -152,7 +152,12 @@ async function bumpReminder(client, guildId) {
     return checkInterval;
 }
 
-// basic function to remove emojis both from tracked phrases and detected messages (intended behaviour is so that bot ignores all emoji)
+// basic function to have the bot ignore all links in from tracked phrases and detected messages
+function removeUrls(text) {
+    return text.replace(/https?:\/\/\S+/gi, ''); // Removes http:// and https:// links
+}
+
+// basic function to remove emojis both from tracked phrases and detected messages
 function removeEmojis(text) {
     return text.replace(/<a?:.+?:\d+>|[\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "");
 }
@@ -180,9 +185,15 @@ client.on("messageCreate", async (message) => {
     const guildId = message.guild.id;
     const detectedPhrases = [];
 
-    // check if message author is NOT from a bot, and see if there is any tracked phrases in the message
+    // check if message author is NOT from a bot
     if (!message.author.bot) {
-        const cleanMessage = removeEmojis(message.content.toLowerCase());
+
+        // remove URLs and emojis from the message
+        const cleanMessage = removeUrls(removeEmojis(message.content.toLowerCase()));
+
+        // skip if there are no tracked phrases for this guild
+        if (!trackedData.guilds[guildId]) return;
+        // check the message content for any tracked phrases
         for (const userId in trackedData.guilds[guildId]) {
             for (const phrase of trackedData.guilds[guildId][userId]) {
                 const cleanPhrase = removeEmojis(phrase.toLowerCase());
@@ -197,7 +208,7 @@ client.on("messageCreate", async (message) => {
     if (message.embeds.length > 0) {
         for (const embed  of message.embeds) {
             if (embed.author?.name) {
-                checkContentForWords(embed.author.name, trackedData[guildId], detectedPhrases);
+                checkContentForWords(embed.author.name, trackedData.guilds[guildId], detectedPhrases);
             }
         }
     }

@@ -5,6 +5,33 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
+const BadWords = require('bad-words');
+
+// create filter the bot to ignore inappropriate words
+let filter = null;
+
+function initializeFilter() {
+    try {
+        filter = new BadWords();
+        const customBadWords = [''];
+        
+        // Validate words before adding
+        const validWords = customBadWords.filter(word => 
+            typeof word === 'string' && word.length > 0
+        );
+        
+        if (validWords.length > 0) {
+            filter.addWords(validWords);
+        }
+        
+        return filter;
+    } catch (error) {
+        console.error('Error initializing filter:', error);
+        return null;
+    }
+}
+
+filter = initializeFilter();
 
 // load tracked phrases from the file
 function loadTrackedPhrases() {
@@ -25,7 +52,7 @@ function saveTrackedPhrases(data) {
 }
 
 // removeEmojis function to ensure that the phrase does not contain any emojis
-function removeEmojis(text) {
+function removeEmojis(text) { 
     return text.replace(/<a?:.+?:\d+>|[\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "");
 }
 
@@ -40,6 +67,14 @@ module.exports = {
         ),
 
     async execute(interaction) {
+        try {
+            if (!filter) {
+                filter = initializeFilter();
+                if (!filter) {
+                    throw new Error('Failed to initialize content filter');
+                }
+            }
+        
         const phrase = interaction.options.getString("phrase").toLowerCase();
         const cleanPhrase = removeEmojis(phrase);
         
@@ -54,6 +89,19 @@ module.exports = {
                 .setDescription("You cannot track a word or phrase that includes an emoji.");
     
             return await interaction.reply({ embeds: [errorEmbed] });
+        }
+
+        // check for inappropriate content
+        if (filter.isProfane(cleanPhrase)) {
+            const inappropriateEmbed = new EmbedBuilder()
+                .setColor("#FF766D")
+                .setAuthor({
+                    name: `Tracking Error`,
+                    iconURL: interaction.user.displayAvatarURL({ dynamic: true })
+                })
+                .setDescription("This phrase cannot be tracked as it contains inappropriate content.");
+    
+            return await interaction.reply({ embeds: [inappropriateEmbed] });
         }
 
         const guildId = interaction.guild.id;
@@ -98,5 +146,13 @@ module.exports = {
             .setDescription(`Successfully started tracking the phrase: "${phrase}"`);
     
         await interaction.reply({ embeds: [successEmbed] });
+
+        } catch (error) {
+            console.error('Error in execute:', error);
+            await interaction.reply({ 
+                content: 'An error occurred while processing your request.',
+                ephemeral: true 
+            });
+        }
     }
 };

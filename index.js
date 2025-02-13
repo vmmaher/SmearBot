@@ -101,6 +101,20 @@ function saveBumpData(data) {
 
 // --------------------------------------
 // NON-COMMAND FUNCTIONS
+// function to load settings from json file
+function loadSettings() {
+    const settingsPath = path.join(__dirname, 'data', 'guild_settings.json');
+    try {
+        if (!fs.existsSync(settingsPath)) {
+            fs.writeFileSync(settingsPath, JSON.stringify({ guilds: {} }, null, 2));
+        }
+        return JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    } catch (error) {
+        console.error('Error loading settings:', error);
+        return { guilds: {} };
+    }
+}
+
 // function to remind server to bump with disboard
 async function bumpReminder(client, guildId) {
     // get data
@@ -113,7 +127,7 @@ async function bumpReminder(client, guildId) {
         return;
     }
     // check if bot can find correct reminder channel. if not, log and return
-    const channelId = guildData.reminders?.channel_id;
+    const channelId = guildData.reminders?.channelId;
     if (!channelId) {
         console.log(`[WARNING] Could not find reminder channel set for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`);
         return;
@@ -240,10 +254,11 @@ client.on("messageCreate", async (message) => {
 
     // send DMs to users with the phrase details
     if (detectedPhrases.length > 0) {
-        console.log("Detected Phrases:", detectedPhrases);
+        const settings = loadSettings();
+        const guildSettings = settings.guilds[guildId] || {};
+        
         for (const { userId, phrase } of detectedPhrases) {
             try {
-                // check if the tracking user is still in the guild
                 const member = await message.guild.members.fetch(userId).catch(() => null);
                 if (!member) {
                     console.log(`User ${userId} is no longer in the guild ${message.guild.name}`);
@@ -253,7 +268,7 @@ client.on("messageCreate", async (message) => {
                 const channel = message.channel;
                 const messageUrl = `https://discord.com/channels/${guildId}/${channel.id}/${message.id}`;
         
-                const embed = new EmbedBuilder()
+                                const embed = new EmbedBuilder()
                     .setColor("#FF766D")
                     .setAuthor({
                         name: `#${channel.name}`,
@@ -266,8 +281,13 @@ client.on("messageCreate", async (message) => {
                     .setFooter({ text: `${new Date().toLocaleString()}` });
         
                 await member.user.send({ embeds: [embed] });
+
+                // if server notifiations are enabled, send in channel
+                if (guildSettings.serverNotifications) {
+                    await message.channel.send(`${member}, ${message.author} said your tracked phrase: **${phrase}**`);
+                }
             } catch (error) {
-                console.error(`Could not send DM to user ${userId}: ${error.message}`);
+                console.error(`Could not send notification to user ${userId}: ${error.message}`);
             }
         }
     }

@@ -133,7 +133,17 @@ async function bumpReminder(client, guildId) {
                         }
 
                         // send the bump reminder
-                        await channel.send("Reminder: use `/bump` to bump the server on Disboard!");
+                        // check if a reminder was already sent
+                        const lastMessages = await channel.messages.fetch({ limit: 5 });
+                        const recentReminder = lastMessages.find(msg => 
+                            msg.author.id === client.user.id && 
+                            msg.content === "Reminder: use `/bump` to bump the server on Disboard!"
+                        );
+                        if (!recentReminder) {
+                            await channel.send("Reminder: use `/bump` to bump the server on Disboard!");
+                        } else {
+                            return;
+                        }
                         console.log(`Sent bump reminder for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`);
 
                         // update the last reminder time after it has been sent
@@ -147,14 +157,14 @@ async function bumpReminder(client, guildId) {
         } catch (error) {
             console.error(`Error in bump reminder task for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`, error);
         }
-    }, 5000); // check every 5 seconds
+    }, 120000); // check every 2 minutes
 
     return checkInterval;
 }
 
 // basic function to have the bot ignore all links in from tracked phrases and detected messages
 function removeUrls(text) {
-    return text.replace(/https?:\/\/\S+/gi, ''); // Removes http:// and https:// links
+    return text.replace(/https?:\/\/\S+/gi, ''); // removes http:// and https:// links
 }
 
 // basic function to remove emojis both from tracked phrases and detected messages

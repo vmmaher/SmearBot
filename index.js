@@ -2,9 +2,9 @@
 // created by sylve
 // --------------------------------------
 
+const { Client, GatewayIntentBits, Collection, EmbedBuilder } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
-const { Client, GatewayIntentBits, Collection } = require("discord.js");
 
 // require .env file for keys/tokens
 require("dotenv").config();
@@ -51,6 +51,20 @@ function loadTrackedPhrases() {
     } catch (error) {
         console.error("Error loading tracked phrases:",error);
         return { guilds: {} };
+    }
+}
+
+// refresh tracked data in memory, triggered each time any track command is used
+function refreshTrackedData() {
+    try {
+        if (!fs.existsSync(global.trackedPhrasesPath)) {
+            fs.writeFileSync(global.trackedPhrasesPath, JSON.stringify({ guilds: {} }, null, 2));
+        }
+        trackedData = JSON.parse(fs.readFileSync(global.trackedPhrasesPath, "utf8"));
+        // console.log('Tracked data refreshed in memory');
+    } catch (error) {
+        console.error("Error refreshing tracked data:", error);
+        trackedData = { guilds: {} };
     }
 }
 
@@ -193,6 +207,9 @@ client.on("messageCreate", async (message) => {
     if (!trackedData) return;
 
     const guildId = message.guild.id;
+    // skip if there are no tracked phrases for this guild
+    if (!trackedData.guilds[guildId]) return;
+    
     const detectedPhrases = [];
 
     // check if message author is NOT from a bot
@@ -201,8 +218,6 @@ client.on("messageCreate", async (message) => {
         // remove URLs and emojis from the message
         const cleanMessage = removeUrls(removeEmojis(message.content.toLowerCase()));
 
-        // skip if there are no tracked phrases for this guild
-        if (!trackedData.guilds[guildId]) return;
         // check the message content for any tracked phrases
         for (const userId in trackedData.guilds[guildId]) {
             for (const phrase of trackedData.guilds[guildId][userId]) {
@@ -223,13 +238,38 @@ client.on("messageCreate", async (message) => {
         }
     }
 
-    // send an alert if any tracked phrases are detected
+    // send DMs to users with the phrase details
     if (detectedPhrases.length > 0) {
-        const alertMessage = detectedPhrases
-            .map(({ userId, phrase}) => `Hey <@${userId}>, ${message.author.username} said "${phrase}"!`)
-            .join("\n");
-        await message.channel.send(alertMessage);
+        console.log("Detected Phrases:", detectedPhrases);
+        for (const { userId, phrase } of detectedPhrases) {
+            try {
+                // check if the tracking user is still in the guild
+                const member = await message.guild.members.fetch(userId).catch(() => null);
+                if (!member) {
+                    console.log(`User ${userId} is no longer in the guild ${message.guild.name}`);
+                    continue;
+                }
 
+                const channel = message.channel;
+                const messageUrl = `https://discord.com/channels/${guildId}/${channel.id}/${message.id}`;
+        
+                const embed = new EmbedBuilder()
+                    .setColor("#FF766D")
+                    .setAuthor({
+                        name: `#${channel.name}`,
+                        url: messageUrl,
+                    })
+                    .setDescription(`Your tracked phrase **"${phrase}"** was said by ${message.author.tag}.`)
+                    .addFields(
+                        { name: '\u200B', value: `[Jump to message](${messageUrl})` }
+                    )
+                    .setFooter({ text: `${new Date().toLocaleString()}` });
+        
+                await member.user.send({ embeds: [embed] });
+            } catch (error) {
+                console.error(`Could not send DM to user ${userId}: ${error.message}`);
+            }
+        }
     }
 });
 
@@ -311,11 +351,15 @@ client.on("interactionCreate", async interaction => {
 
     try {
         await command.execute(interaction);
+        // Refresh data after specific commands that modify tracking
+        if (['removetracked', 'track', 'viewtracked'].includes(interaction.commandName)) {
+            refreshTrackedData();
+        }
     } catch (error) {
-        console.error(`Error executing command ${interaction.commandName}:`, error);
-        await interaction.reply({
-            content: "There was an error executing that command.",
-            ephemeral: true
+        console.error(error);
+        await interaction.reply({ 
+            content: 'There was an error executing this command!', 
+            ephemeral: true 
         });
     }
 });

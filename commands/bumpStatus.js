@@ -3,10 +3,10 @@
 // /bumpstatus is intended to show when the last recorded disboard bump was for each server,
 // and when the next reminder will be sent.
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-const bumpDataPath = path.join(__dirname, '..', 'data', 'bump_data.json');
+const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
+const fs = require("fs");
+const path = require("path");
+const bumpDataPath = path.join(__dirname, "..", "data", "bump_data.json");
 
 // check if the bump_data.json file exists, and if not, create an empty structure
 if (!fs.existsSync(bumpDataPath)) {
@@ -15,16 +15,16 @@ if (!fs.existsSync(bumpDataPath)) {
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('bumpstatus')
-        .setDescription('Prints out Disboard bump reminder status for debugging'),
+        .setName("bumpstatus")
+        .setDescription("Shows the server's current Disboard bump status."),
     
     async execute(interaction) {
         // read data from bump_data.json each time the command is used to ensure it is up to date
-        const bumpData = JSON.parse(fs.readFileSync(bumpDataPath, 'utf8'));
+        const bumpData = JSON.parse(fs.readFileSync(bumpDataPath, "utf8"));
         const guildId = interaction.guild.id;
 
         if (!bumpData.guilds[guildId] || !bumpData.guilds[guildId].last_bump) {
-            await interaction.reply('No bump has been recorded yet.');
+            await interaction.reply("No bump has been recorded yet.");
             return;
         }
 
@@ -50,14 +50,14 @@ module.exports = {
         };
 
         const statusEmbed = new EmbedBuilder()
-            .setColor('#FF766D')
+            .setColor("#FF766D")
             .setAuthor({
                 name: `Disboard Bump Status for ${interaction.guild.name}:`,
                 iconURL: interaction.guild.iconURL({ dynamic: true })
             })
             .addFields(
-                { name: 'Last Bump', value: `${formatTime(timeSinceBump)} ago`, inline: true },
-                { name: 'Next Reminder', value: `${formatTime(timeUntilNextReminder)}`, inline: true }
+                { name: "Last Bump", value: `${formatTime(timeSinceBump)} ago`, inline: true },
+                { name: "Next Reminder", value: `${formatTime(timeUntilNextReminder)}`, inline: true }
             )
 
         await interaction.reply({ embeds: [statusEmbed] });

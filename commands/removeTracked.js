@@ -32,12 +32,31 @@ module.exports = {
             option.setName("phrase")
                 .setDescription("The phrase or word to remove from tracking")
                 .setRequired(true)
+        )
+        .addUserOption(option =>
+            option.setName("user")
+                .setDescription("The user to remove the phrase from (mod only)")
+                .setRequired(false)
         ),
 
     async execute(interaction) {
         const phrase = interaction.options.getString("phrase").toLowerCase();
         const guildId = interaction.guild.id;
-        const userId = interaction.user.id;
+        const targetUser = interaction.options.getUser("user");
+        
+        // Check if a target user was specified and if the command user has permission
+        if (targetUser) {
+            if (!interaction.member.permissions.has("ModerateMembers")) {
+                const noPermissionEmbed = new EmbedBuilder()
+                    .setColor("#FF766D")
+                    .setDescription("You don't have permission to remove tracked phrases from other users.");
+                
+                return await interaction.reply({ embeds: [noPermissionEmbed], ephemeral: true });
+            }
+            userId = targetUser.id;
+        } else {
+            userId = interaction.user.id;
+        }
 
         const trackedData = loadTrackedPhrases();
 
@@ -46,13 +65,15 @@ module.exports = {
                 .setColor("#FF766D")
                 .setAuthor({
                     name: `No Tracked Phrases`,
-                    iconURL: interaction.user.displayAvatarURL({ dynamic: true })
+                    iconURL: (targetUser || interaction.user).displayAvatarURL({ dynamic: true })
                 })
-                .setDescription("You have no tracked phrases to remove.");
+                .setDescription(targetUser ? 
+                    `${targetUser.tag} has no tracked phrases to remove.` :
+                    "You have no tracked phrases to remove.");
     
             return await interaction.reply({ embeds: [noPhrasesEmbed] });
         }
-    
+
         const userTrackedPhrases = trackedData.guilds[guildId][userId];
         const index = userTrackedPhrases.indexOf(phrase);
     
@@ -61,9 +82,11 @@ module.exports = {
                 .setColor("#FF766D")
                 .setAuthor({
                     name: `Phrase Not Found`,
-                    iconURL: interaction.user.displayAvatarURL({ dynamic: true })
+                    iconURL: (targetUser || interaction.user).displayAvatarURL({ dynamic: true })
                 })
-                .setDescription(`The phrase "${phrase}" is not being tracked.`);
+                .setDescription(targetUser ?
+                    `The phrase "${phrase}" is not being tracked by ${targetUser.tag}.` :
+                    `The phrase "${phrase}" is not being tracked.`);
     
             return await interaction.reply({ embeds: [notFoundEmbed] });
         }
@@ -75,9 +98,11 @@ module.exports = {
             .setColor("#FF766D")
             .setAuthor({
                 name: `Tracking Removed`,
-                iconURL: interaction.user.displayAvatarURL({ dynamic: true })
+                iconURL: (targetUser || interaction.user).displayAvatarURL({ dynamic: true })
             })
-            .setDescription(`Successfully removed the phrase: "${phrase}" from your tracked list.`);
+            .setDescription(targetUser ?
+                `Successfully removed the phrase: "${phrase}" from ${targetUser.tag}'s tracked list.` :
+                `Successfully removed the phrase: "${phrase}" from your tracked list.`);
     
         await interaction.reply({ embeds: [successEmbed] });
     }

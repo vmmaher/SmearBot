@@ -59,7 +59,7 @@ function removeEmojis(text) {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("track")
-        .setDescription("Track a new word or phrase")
+        .setDescription("Track a word or phrase in your current server. Sends a DM if it is mentioned in a message.")
         .addStringOption(option =>
             option.setName("phrase")
                 .setDescription("The phrase or word to track")
@@ -71,7 +71,7 @@ module.exports = {
             if (!filter) {
                 filter = initializeFilter();
                 if (!filter) {
-                    throw new Error('Failed to initialize content filter');
+                    throw new Error("Failed to initialize content filter");
                 }
             }
         

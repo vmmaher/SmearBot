@@ -328,16 +328,13 @@ client.on("messageCreate", async (message) => {
 
     // send a resposne gif if a mention of the bot contains the word "clown"
     const clownGif = "https://tenor.com/view/clown-makeup-clown-makeup-bozo-gif-26049773"
-    if (message.mentions.has(client.user) && 
-    (message.content.toLowerCase().includes("clown") || message.content.includes("🤡"))) {
-    await message.channel.send(clownGif);
+    if (message.mentions.has(client.user) && (message.content.toLowerCase().includes("clown") || message.content.includes("🤡"))) {
+        await message.channel.send(clownGif);
     }
 
     // send a resposne gif if a mention of the bot contains the word "good bot"
-    const gootBotGif = "https://tenor.com/view/good-boy-pat-on-head-stitch-gif-14742401"
-    if (message.mentions.has(client.user) && 
-    (message.content.toLowerCase().includes("good bot"))) {
-    await message.channel.send(gootBotGif);
+    if (message.mentions.has(client.user) && (message.content.toLowerCase().includes("good bot"))) {
+        await message.channel.send("<a:SmearPet:1339681241661706260>");    
     }
 });
 
@@ -361,6 +358,24 @@ client.on("interactionCreate", async interaction => {
             content: 'There was an error executing this command!', 
             ephemeral: true 
         });
+    }
+});
+
+// handle dropdown interactions for the nature guess command
+client.on('interactionCreate', async interaction => {
+    if (interaction.isStringSelectMenu()) {
+        const command = client.commands.get('natureguess');
+        if (command) {
+            try {
+                await command.handleSelect(interaction);
+            } catch (error) {
+                console.error(error);
+                await interaction.reply({ 
+                    content: 'There was an error processing your vote!', 
+                    ephemeral: true 
+                });
+            }
+        }
     }
 });
 

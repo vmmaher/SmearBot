@@ -128,7 +128,7 @@ async function bumpReminder(client, guildId) {
     }
 
     // check if bot can find correct reminder channel. if not, log and return
-    const channelId = guildData.reminders?.channelId;
+    const channelId = guildData.reminders?.channel_id;
     if (!channelId) {
         console.log(`[WARNING] Could not find reminder channel set for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`);
         return;
@@ -154,8 +154,10 @@ async function bumpReminder(client, guildId) {
                 const twoHours = 7200000;
                 const timeUntilNextReminder = twoHours - (timeSinceBump % twoHours);
 
-                // check if it's time to remind, with a 10 second window to account for potential lag/delay
-                const isWithinWindow = timeUntilNextReminder <= 10000;
+                console.log(`Debug - Time until next reminder: ${timeUntilNextReminder/1000}s`);
+
+                // check if it's time to remind, with a 30 second window to account for potential lag/delay
+                const isWithinWindow = timeUntilNextReminder <= 30000;
 
                 if (isWithinWindow) {
                     // creates a date object based on the last reminder, and checks if the last reminder was 30 or more minutes ago
@@ -181,14 +183,14 @@ async function bumpReminder(client, guildId) {
                             );
                             if (!recentReminder) {
                                 await channel.send("Reminder: use `/bump` to bump the server on Disboard!");
+                                console.log(`Sent bump reminder for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`);
+
+                                // update the last reminder time after it has been sent
+                                bumpData.guilds[guildId].lastReminder = new Date().toISOString();
+                                saveBumpData(bumpData);
                             } else {
                                 return;
                             }
-                            console.log(`Sent bump reminder for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`);
-
-                            // update the last reminder time after it has been sent
-                            bumpData.guilds[guildId].lastReminder = new Date().toISOString();
-                            saveBumpData(bumpData);
                         } catch (sendError) {
                             console.error(`Error sending bump reminder for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`, sendError);
                         }
@@ -324,7 +326,7 @@ client.on("messageCreate", async (message) => {
 
                 // record the new bump time, as well as the channel it was sent in
                 bumpData.guilds[guildId].last_bump = new Date().toISOString();
-                bumpData.guilds[guildId].reminders.channelId = message.channel.id;
+                bumpData.guilds[guildId].reminders.channel_id = message.channel.id;
 
                 saveBumpData(bumpData);
                 await message.channel.send("Bump detected. I'll remind you to bump again in 2 hours!")

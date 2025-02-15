@@ -123,9 +123,10 @@ async function bumpReminder(client, guildId) {
 
     // ensure guild has any last bump data before proceeding. if not, log and return
     if (!guildData?.last_bump) {
-        console.log(`[INFO] No last bump time found for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}.`);
+        console.log(`[INFO] No last bump time found for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`);
         return;
     }
+
     // check if bot can find correct reminder channel. if not, log and return
     const channelId = guildData.reminders?.channelId;
     if (!channelId) {
@@ -133,61 +134,73 @@ async function bumpReminder(client, guildId) {
         return;
     }
 
-    const checkInterval = setInterval(async () => {
-        try {
-            // get current time and calculate when last bump was
-            const now = Date.now();
-            const lastBumpTime = new Date(guildData.last_bump).getTime();
-            const timeSinceBump = now - lastBumpTime;
-            const twoHours = 7200000;
-            const timeUntilNextReminder = twoHours - (timeSinceBump % twoHours);
+    // calculate the initial delay based on the last bump time
+    const now = Date.now();
+    const lastBumpTime = new Date(guildData.last_bump).getTime();
+    const timeSinceBump = now - lastBumpTime;
+    const twoHours = 7200000;
+    const timeUntilNextReminder = twoHours - (timeSinceBump % twoHours);
 
-            // check if it's time to remind, with a 10 second window to account for potential lag/delay
-            const isWithinWindow = timeUntilNextReminder <= 10000;
+    console.log(`Next bump reminder for ${client.guilds.cache.get(guildId).name} in: ${Math.floor(timeUntilNextReminder / 60000)} minutes`);
 
-            if (isWithinWindow) {
-                // Creates a date object based on the last reminder, and checks if the last reminder was 30 or more minutes ago
-                const lastReminder = guildData.last_reminder ? new Date(guildData.last_reminder).getTime() : null;
-                const hasCooldownPassed = !lastReminder || (now - lastReminder) >= 1800000;
+    // set the timeout to sync with the last bump
+    setTimeout(() => {
+        const checkInterval = setInterval(async () => {
+            try {
+                // get the current time and calculate when last bump was
+                const now = Date.now();
+                const lastBumpTime = new Date(guildData.last_bump).getTime();
+                const timeSinceBump = now - lastBumpTime;
+                const twoHours = 7200000;
+                const timeUntilNextReminder = twoHours - (timeSinceBump % twoHours);
 
-                if (hasCooldownPassed) {
-                    try {
-                        const channel = await client.channels.fetch(channelId);
-                        // check if bot has correct permissions
-                        const permissions = channel.permissionsFor(client.user);
-                        if (!permissions || !permissions.has(["SendMessages", "ViewChannel", "EmbedLinks"])) {
-                            console.log(`Missing permissions for reminder channel in GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`);
-                            return;
+                // check if it's time to remind, with a 10 second window to account for potential lag/delay
+                const isWithinWindow = timeUntilNextReminder <= 10000;
+
+                if (isWithinWindow) {
+                    // creates a date object based on the last reminder, and checks if the last reminder was 30 or more minutes ago
+                    const lastReminder = guildData.lastReminder ? new Date(guildData.lastReminder).getTime() : null;
+                    const hasCooldownPassed = !lastReminder || (now - lastReminder) >= 1800000;
+
+                    if (hasCooldownPassed) {
+                        try {
+                            const channel = await client.channels.fetch(channelId);
+                            // check if bot has correct permissions
+                            const permissions = channel.permissionsFor(client.user);
+                            if (!permissions || !permissions.has(["SendMessages", "ViewChannel", "EmbedLinks"])) {
+                                console.log(`Missing permissions for reminder channel in GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`);
+                                return;
+                            }
+
+                            // send the bump reminder
+                            // check if a reminder was already sent
+                            const lastMessages = await channel.messages.fetch({ limit: 5 });
+                            const recentReminder = lastMessages.find(msg => 
+                                msg.author.id === client.user.id && 
+                                msg.content === "Reminder: use `/bump` to bump the server on Disboard!"
+                            );
+                            if (!recentReminder) {
+                                await channel.send("Reminder: use `/bump` to bump the server on Disboard!");
+                            } else {
+                                return;
+                            }
+                            console.log(`Sent bump reminder for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`);
+
+                            // update the last reminder time after it has been sent
+                            bumpData.guilds[guildId].lastReminder = new Date().toISOString();
+                            saveBumpData(bumpData);
+                        } catch (sendError) {
+                            console.error(`Error sending bump reminder for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`, sendError);
                         }
-
-                        // send the bump reminder
-                        // check if a reminder was already sent
-                        const lastMessages = await channel.messages.fetch({ limit: 5 });
-                        const recentReminder = lastMessages.find(msg => 
-                            msg.author.id === client.user.id && 
-                            msg.content === "Reminder: use `/bump` to bump the server on Disboard!"
-                        );
-                        if (!recentReminder) {
-                            await channel.send("Reminder: use `/bump` to bump the server on Disboard!");
-                        } else {
-                            return;
-                        }
-                        console.log(`Sent bump reminder for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`);
-
-                        // update the last reminder time after it has been sent
-                        bumpData.guilds[guildId].lastReminder = new Date().toISOString();
-                        saveBumpData(bumpData);
-                    } catch (sendError) {
-                        console.error(`Error sending bump reminder for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`, sendError);
                     }
                 }
+            } catch (error) {
+                console.error(`Error in bump reminder task for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`, error);
             }
-        } catch (error) {
-            console.error(`Error in bump reminder task for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`, error);
-        }
-    }, 120000); // check every 2 minutes
+        }, 120000); // check every 2 minutes
 
-    return checkInterval;
+        return checkInterval;
+    }, timeUntilNextReminder);
 }
 
 // basic function to have the bot ignore all links in from tracked phrases and detected messages

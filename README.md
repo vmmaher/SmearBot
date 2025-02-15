@@ -3,7 +3,3 @@
 This is just a side project, so I'm still working to streamline the bot and add more commands.
 
 Currently the git repository is set to ignore the entire /data folder to protect the privacy of any guilds that may use the bot, so you may need to create that folder to prevent any errors, but... I wouldn't recommend using the bot in its current state on your own.
-
-## Description Coming Soon
-
-A full description of SmearBot's features and usage will be available... soon-ish. This is just a side project, so it's not a high priority for me right now.

@@ -5,11 +5,11 @@
 const { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, EmbedBuilder } = require('discord.js');
 
 const natures = [
-    'Adamant', 'Bashful', 'Bold', 'Brave', 'Calm', 
-    'Careful', 'Docile', 'Gentle', 'Hardy', 'Hasty',
-    'Impish', 'Jolly', 'Lax', 'Lonely', 'Mild',
-    'Modest', 'Naive', 'Naughty', 'Quiet', 'Quirky',
-    'Rash', 'Relaxed', 'Sassy', 'Serious', 'Timid'
+    'adamant', 'bashful', 'bold', 'brave', 'calm', 
+    'careful', 'docile', 'gentle', 'hardy', 'hasty',
+    'impish', 'jolly', 'lax', 'lonely', 'mild',
+    'modest', 'naive', 'naughty', 'quiet', 'quirky',
+    'rash', 'relaxed', 'sassy', 'serious', 'timid'
 ];
 
 const votesMap = new Map();
@@ -44,15 +44,15 @@ module.exports = {
             return;
         }
 
-        const submittedNature = interaction.options.getString('nature');
+        const submittedNature = interaction.options.getString('nature').toLowerCase();
         const subject = interaction.options.getString('subject');
         const duration = interaction.options.getInteger('duration') * 60 * 1000;
 
         // validate the nature exists
         if (!natures.includes(submittedNature)) {
             await interaction.reply({ 
-                content: `Error: "${submittedNature}" is not a valid Pokémon nature. Valid natures are: ${natures.join(", ")}`, 
-                ephemeral: true 
+                content: `Error: "${submittedNature}" is not a valid Pokémon nature. Valid natures are: ${natures.map(n => n.charAt(0).toUpperCase() + n.slice(1)).join(", ")}`, 
+                flags: [1 << 6]
             });
             return;
         }
@@ -84,8 +84,8 @@ module.exports = {
                     .setPlaceholder('Select a nature')
                     .addOptions(
                         natures.map(nature => ({
-                            label: nature,
-                            value: nature.toLowerCase(),
+                            label: nature.charAt(0).toUpperCase() + nature.slice(1),
+                            value: nature,
                         }))
                     )
             );
@@ -100,17 +100,29 @@ module.exports = {
         });
 
         setTimeout(async () => {
-            const channelVotes = votesMap.get(interaction.channelId).votes;
-            if (!channelVotes) return;
+            const channelData = votesMap.get(interaction.channelId);
+            if (!channelData?.votes) return;
 
-            // count final votes
+            // count final votes and track correct guessers
             const voteCounts = new Map();
-            for (const vote of channelVotes.values()) {
+            const correctGuessers = [];
+            
+            for (const [userId, vote] of channelData.votes) {
                 voteCounts.set(vote, (voteCounts.get(vote) || 0) + 1);
+                if (vote === submittedNature) {
+                    const member = await interaction.guild.members.fetch(userId);
+                    correctGuessers.push(member.displayName);
+                }
             }
 
             // create a results summary
-            let resultsDescription = `The correct nature was: **${submittedNature}**\n\n__Final Votes:__\n`;
+            let resultsDescription = `The correct nature was: **${submittedNature.charAt(0).toUpperCase() + submittedNature.slice(1)}**`;
+            
+            if (correctGuessers.length > 0) {
+                resultsDescription += `\n🎉 Correct ${correctGuessers.length === 1 ? 'guesser' : 'guessers'}: ${correctGuessers.join(', ')}`;
+            }
+            
+            resultsDescription += '\n\n__Final Votes:__\n';
             if (voteCounts.size === 0) {
                 resultsDescription += 'None';
             } else {
@@ -146,6 +158,15 @@ module.exports = {
         if (!channelData) {
             channelData = { votes: new Map(), subject: '', user: null };
             votesMap.set(channelId, channelData);
+        }
+
+        // check if the user trying to vote is the poll creator, as they are not allowed to vote
+        if (userId === channelData.user.id) {
+            await interaction.reply({ 
+                content: "You cannot vote in your own Nature Guess!", 
+                flags: [1 << 6]
+            });
+            return;
         }
 
         channelData.votes.set(userId, selectedNature);

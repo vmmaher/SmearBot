@@ -1,5 +1,3 @@
-# SmearBot
-
 **This project is still under development.**
 
 This is just a side project, so I'm still working to streamline the bot and add more commands.

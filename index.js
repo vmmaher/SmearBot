@@ -185,7 +185,7 @@ async function bumpReminder(client, guildId) {
         } catch (error) {
             console.error(`Error in bump reminder task for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`, error);
         }
-    }, 120000); // check every 2 minutes
+    }, 120000); // check every 2 minute
 
     return checkInterval;
 }

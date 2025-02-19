@@ -167,16 +167,18 @@ async function bumpReminder(client, guildId) {
                             msg.author.id === client.user.id && 
                             msg.content === "Reminder: use `/bump` to bump the server on Disboard!"
                         );
+                        console.log(`Recent reminder found: ${recentReminder ? 'Yes' : 'No'}`);
                         if (!recentReminder) {
                             await channel.send("Reminder: use `/bump` to bump the server on Disboard!");
+                            console.log(`Sent bump reminder for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`);
+
+                            // update the last reminder time after it has been sent
+                            bumpData.guilds[guildId].lastReminder = new Date().toISOString();
+                            saveBumpData(bumpData);
                         } else {
+                            console.log(`Reminder already sent recently for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`);
                             return;
                         }
-                        console.log(`Sent bump reminder for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`);
-
-                        // update the last reminder time after it has been sent
-                        bumpData.guilds[guildId].lastReminder = new Date().toISOString();
-                        saveBumpData(bumpData);
                     } catch (sendError) {
                         console.error(`Error sending bump reminder for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`, sendError);
                     }

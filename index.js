@@ -162,7 +162,7 @@ async function bumpReminder(client, guildId) {
 
                         // send the bump reminder
                         // check if a reminder was already sent
-                        const lastMessages = await channel.messages.fetch({ limit: 5 });
+                        const lastMessages = await channel.messages.fetch({ limit: 1 }); // only checks the latest message in the channel
                         const recentReminder = lastMessages.find(msg => 
                             msg.author.id === client.user.id && 
                             msg.content === "Reminder: use `/bump` to bump the server on Disboard!"
@@ -185,7 +185,7 @@ async function bumpReminder(client, guildId) {
         } catch (error) {
             console.error(`Error in bump reminder task for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`, error);
         }
-    }, 120000); // check every 2 minute
+    }, 120000); // check every 2 minutes
 
     return checkInterval;
 }

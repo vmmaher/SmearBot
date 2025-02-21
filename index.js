@@ -135,20 +135,27 @@ async function bumpReminder(client, guildId) {
 
     const checkInterval = setInterval(async () => {
         try {
-            // get current time and calculate when last bump was
+            // re-fetch the latest bump data each time
+            const currentGuildData = bumpData.guilds[guildId];
             const now = Date.now();
-            const lastBumpTime = new Date(guildData.last_bump).getTime();
+            const lastBumpTime = new Date(currentGuildData.last_bump).getTime();
             const timeSinceBump = now - lastBumpTime;
-            const twoHours = 7200000;
-            const timeUntilNextReminder = twoHours - (timeSinceBump % twoHours);
-
-            // check if it's time to remind, with a 10 second window to account for potential lag/delay
-            const isWithinWindow = timeUntilNextReminder <= 10000;
-
-            if (isWithinWindow) {
-                // creates a date object based on the last reminder, and checks if the last reminder was 30 or more minutes ago
-                const lastReminder = guildData.last_reminder ? new Date(guildData.last_reminder).getTime() : null;
+            
+            // debug logging
+            console.log(`Check running for ${guildId}:`);
+            console.log(`Last bump: ${new Date(lastBumpTime).toISOString()}`);
+            console.log(`Time since bump: ${Math.floor(timeSinceBump / 1000 / 60)} minutes`);
+            
+            // if it's been more than 2 hours since last bump
+            if (timeSinceBump >= 7200000) {
+                const lastReminder = currentGuildData.last_reminder ? 
+                    new Date(currentGuildData.last_reminder).getTime() : null;
+                
+                // Check if we haven't sent a reminder in the last 30 minutes
                 const hasCooldownPassed = !lastReminder || (now - lastReminder) >= 1800000;
+                
+                console.log(`Last reminder: ${lastReminder ? new Date(lastReminder).toISOString() : 'never'}`);
+                console.log(`Cooldown passed: ${hasCooldownPassed}`);
 
                 if (hasCooldownPassed) {
                     try {
@@ -161,24 +168,12 @@ async function bumpReminder(client, guildId) {
                         }
 
                         // send the bump reminder
-                        // check if a reminder was already sent
-                        const lastMessages = await channel.messages.fetch({ limit: 1 }); // only checks the latest message in the channel
-                        const recentReminder = lastMessages.find(msg => 
-                            msg.author.id === client.user.id && 
-                            msg.content === "Reminder: use `/bump` to bump the server on Disboard!"
-                        );
-                        console.log(`Recent reminder found: ${recentReminder ? 'Yes' : 'No'}`);
-                        if (!recentReminder) {
-                            await channel.send("Reminder: use `/bump` to bump the server on Disboard!");
-                            console.log(`Sent bump reminder for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`);
+                        await channel.send("Reminder: use `/bump` to bump the server on Disboard!");
+                        console.log(`Sent bump reminder for GuildID: ${guildId}`);
 
-                            // update the last reminder time after it has been sent
-                            bumpData.guilds[guildId].lastReminder = new Date().toISOString();
-                            saveBumpData(bumpData);
-                        } else {
-                            console.log(`Reminder already sent recently for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`);
-                            return;
-                        }
+                        // update the last reminder time after it has been sent
+                        bumpData.guilds[guildId].last_reminder = new Date().toISOString();
+                        saveBumpData(bumpData);
                     } catch (sendError) {
                         console.error(`Error sending bump reminder for GuildID: ${guildId} GuildName: ${client.guilds.cache.get(guildId).name}`, sendError);
                     }
